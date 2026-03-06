@@ -1,0 +1,180 @@
+import Match, { MatchStatus } from "../model/match.model";
+import Inning from "../model/inning.model";
+import Ball from "../model/ball.model";
+import { Request, Response } from "express";
+
+export const addBall = async(req : Request, res: Response) =>{
+    try {
+        // STEP 1 — Validate Match
+        const {matchId, Id } = req.params;
+        const { runsScored = 0, extraRuns = 0, isWicket = false, extraType, wicketType, outPlayer, batsman, bowler } = req.body;
+
+        const match = await Match.findById(matchId);
+        if(!match) return res.status(404).json({message: "Match not found"});
+        if(match.status !== MatchStatus.LIVE) return res.status(400).json({message : "Match is not live"});
+
+        // STEP 2 — Validate Innings
+        const inning = await Inning.findById(Id);
+        if(!inning) return res.status(404).json({message: "Innings not found"});
+        if(inning.status === "completed") return res.status(400).json({message: "Innings is completed"});
+
+        // STEP 3 — Calculate Over + Ball Number
+        const overNumber = inning.oversCompleted;
+        const ballNumber = inning.ballsInCurrentOver;
+
+        // STEP 4 — Create Ball Document
+        const ball = await Ball.create({
+            matchId,
+            inningsId: Id,
+            batsman: batsman || inning.striker,
+            bowler: bowler || inning.currentBowler,
+            runsScored,
+            extraType,
+            wicketType,
+            overNumber,
+            ballNumber
+        });
+
+        // STEP 5 — Update Score
+        inning.totalRuns += runsScored + extraRuns;
+
+        // STEP 6 — Update Ball Count
+        const isLegalDelivery = !extraType || (extraType !== "wide" && extraType !== "no-ball");
+        
+        if(isLegalDelivery) {
+            inning.ballsInCurrentOver++;
+            
+            if(inning.ballsInCurrentOver === 6) {
+                inning.oversCompleted++;
+                inning.ballsInCurrentOver = 0;
+            }
+        }
+
+        // STEP 8 — Handle Wicket
+        if(isWicket) {
+            inning.totalWickets++;
+        }
+
+        // STEP 9 — Check All Out
+        if(inning.totalWickets === 10) {
+            inning.status = "completed";
+            inning.resultType = "all-out";
+        }
+
+        // STEP 10 — Strike Rotation
+        if(runsScored % 2 !== 0) {
+            [inning.striker, inning.nonStriker] = [inning.nonStriker, inning.striker];
+        }
+
+        // STEP 11 — End of Over Strike Change
+        if(isLegalDelivery && inning.ballsInCurrentOver === 0) {
+            [inning.striker, inning.nonStriker] = [inning.nonStriker, inning.striker];
+        }
+
+        // STEP 12 — Save Innings
+        await inning.save();
+
+        res.status(201).json({ message: "Ball added successfully", ball, inning });
+
+    } catch (error) {
+        res.status(500).json({ message: "Error adding ball", error });
+    }
+}
+
+export const getBallsByOver = async(req: Request, res: Response) => {
+    try {
+        const { inningsId } = req.params;
+        
+        const balls = await Ball.find({ inningsId })
+            .sort({ overNumber: 1, ballNumber: 1 })
+            .populate("batsman bowler");
+        
+        res.status(200).json({ balls });
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching balls", error });
+    }
+}
+
+export const getCurrentScore = async(req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        
+        const inning = await Inning.findById(id);
+        if(!inning) return res.status(404).json({message: "Innings not found"});
+        
+        const overs = `${inning.oversCompleted}.${inning.ballsInCurrentOver}`;
+        
+        res.status(200).json({
+            runs: inning.totalRuns,
+            wickets: inning.totalWickets,
+            overs
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching score", error });
+    }
+}
+
+export const undoLastBall = async(req: Request, res: Response) => {
+    try {
+        const { inningsId } = req.params;
+        
+        const lastBall = await Ball.findOne({ inningsId }).sort({ createdAt: -1 });
+        if(!lastBall) return res.status(404).json({message: "No ball to undo"});
+        
+        const inning = await Inning.findById(inningsId);
+        if(!inning) return res.status(404).json({message: "Innings not found"});
+        
+        // Reverse score impact
+        inning.totalRuns -= (lastBall.runsScored + (lastBall.extraType ? 1 : 0));
+        
+        if(lastBall.wicketType) {
+            inning.totalWickets--;
+        }
+        
+        const wasLegal = !lastBall.extraType || (lastBall.extraType !== "wide" && lastBall.extraType !== "no-ball");
+        if(wasLegal) {
+            if(inning.ballsInCurrentOver === 0) {
+                inning.oversCompleted--;
+                inning.ballsInCurrentOver = 5;
+            } else {
+                inning.ballsInCurrentOver--;
+            }
+        }
+        
+        await inning.save();
+        await Ball.findByIdAndDelete(lastBall._id);
+        
+        res.status(200).json({ message: "Ball undone successfully", inning });
+    } catch (error) {
+        res.status(500).json({ message: "Error undoing ball", error });
+    }
+}
+
+export const getCommentary = async(req: Request, res: Response) => {
+    try {
+        const { inningsId } = req.params;
+        
+        const balls = await Ball.find({ inningsId })
+            .sort({ overNumber: -1, ballNumber: -1 })
+            .populate("batsman bowler");
+        
+        const commentary = balls.map(ball => {
+            const over = `${ball.overNumber}.${ball.ballNumber}`;
+            const batsman = (ball.batsman as any)?.name || "Unknown";
+            const bowler = (ball.bowler as any)?.name || "Unknown";
+            let result = "";
+            
+            if(ball.wicketType) result = "WICKET";
+            else if(ball.runsScored === 6) result = "SIX";
+            else if(ball.runsScored === 4) result = "FOUR";
+            else if(ball.extraType) result = ball.extraType.toUpperCase();
+            else result = `${ball.runsScored} run${ball.runsScored !== 1 ? 's' : ''}`;
+            
+            return `Over ${over} - ${bowler} to ${batsman} - ${result}`;
+        });
+        
+        res.status(200).json({ commentary });
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching commentary", error });
+    }
+}

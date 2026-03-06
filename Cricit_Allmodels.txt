@@ -1,0 +1,565 @@
+---------User Model ---------
+
+import mongoose from "mongoose";
+
+export interface IUser extends Document{
+    username: string;
+    age: number;
+    email: string;
+    phone: string;
+    password: string;
+}
+
+const userSchema = new mongoose.Schema<IUser>({
+    username:{type: String, required: true},
+    age:{type: Number, required: true},
+    email:{type: String, required: true, unique: true},
+    phone:{type: String, required: true, unique: true, match: [/^\+91\d{10}$/, "Phone must be Indian number with +91"]    },
+    password:{type: String, required: true}
+})
+
+const User = mongoose.model<IUser>('User', userSchema);
+export default User;
+
+
+---------match Model ---------
+
+import mongoose, { Schema, Types, HydratedDocument } from "mongoose";
+
+export enum MatchStatus {
+  UPCOMING = "upcoming",
+  TOSS = "toss",
+  LIVE = "live",
+  INNINGS_BREAK = "innings_break",
+  FINISHED = "finished",
+  ABANDONED = "abandoned",
+}
+
+export enum MatchType {
+  T20 = "t20",
+  ODI = "odi",
+  BOX = "box-cricket",
+}
+
+export enum TossDecision {
+  BAT = "bat",
+  BOWL = "bowl",
+}
+
+interface IScore {
+  runs: number;
+  wickets: number;
+  overs: number;
+}
+
+export interface IMatch {
+  teamA: Types.ObjectId;
+  teamB: Types.ObjectId;
+
+  matchType: MatchType;
+  venue: string;
+  matchDate: Date;
+
+  playing11TeamA: Types.ObjectId[];
+  playing11TeamB: Types.ObjectId[];
+
+  status: MatchStatus;
+
+  tossWinner?: Types.ObjectId;
+  tossDecision?: TossDecision;
+
+  teamAScore?: IScore;
+  teamBScore?: IScore;
+
+  winner?: Types.ObjectId;
+
+  createdBy: Types.ObjectId;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type MatchDocument = HydratedDocument<IMatch>;
+
+const scoreSchema = new Schema<IScore>(
+  {
+    runs: { type: Number, default: 0 },
+    wickets: { type: Number, default: 0 },
+    overs: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
+const matchSchema = new Schema<IMatch>(
+  {
+    teamA: {
+      type: Schema.Types.ObjectId,
+      ref: "Team",
+      required: true,
+    },
+    teamB: {
+      type: Schema.Types.ObjectId,
+      ref: "Team",
+      required: true,
+    },
+
+
+     playing11TeamA: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Player",
+      },
+    ],
+
+    playing11TeamB: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Player",
+      },
+    ],
+
+    matchType: {
+      type: String,
+      enum: Object.values(MatchType),
+      required: true,
+    },
+
+    venue: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    matchDate: {
+      type: Date,
+      required: true,
+    },
+
+    status: {
+      type: String,
+      enum: Object.values(MatchStatus),
+      default: MatchStatus.UPCOMING,
+    },
+
+    tossWinner: {
+      type: Schema.Types.ObjectId,
+      ref: "Team",
+    },
+
+    tossDecision: {
+      type: String,
+      enum: Object.values(TossDecision),
+    },
+
+    teamAScore: scoreSchema,
+    teamBScore: scoreSchema,
+
+    winner: {
+      type: Schema.Types.ObjectId,
+      ref: "Team",
+    },
+
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+// same team match
+matchSchema.pre("save", async function () {
+  if (this.teamA.equals(this.teamB)) {
+    throw new Error("Team A and Team B cannot be the same");
+  }
+});
+
+matchSchema.pre("save", async function () {
+  if (this.status === MatchStatus.FINISHED && !this.winner) {
+    throw new Error("Winner must be set when match is finished");
+  }
+
+  if (this.status !== MatchStatus.FINISHED && this.winner) {
+    throw new Error("Winner can only be set when match is finished");
+  }
+});
+
+
+matchSchema.pre("save", function () {
+  if (this.tossWinner) {
+    if (
+      !this.tossWinner.equals(this.teamA) &&
+      !this.tossWinner.equals(this.teamB)
+    ) {
+      throw new Error("Toss winner must be either Team A or Team B");
+    }
+  }
+});
+
+// Useful indexes
+matchSchema.index({ status: 1 });
+matchSchema.index({ matchDate: 1 });
+matchSchema.index({ teamA: 1, teamB: 1 });
+
+export const Match = mongoose.model<IMatch>("Match", matchSchema);
+
+
+---------team Model ---------
+
+import mongoose, { Types } from "mongoose";
+
+export interface ITeam extends Document {
+  teamname: string;
+  createdBy: Types.ObjectId;
+  createdAt: Date;
+}
+
+const teamSchema = new mongoose.Schema<ITeam>(
+  {
+    teamname: { type: String, required: true, unique: false },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  {
+    timestamps: false,
+  },
+);
+
+const Team = mongoose.model<ITeam>("Team", teamSchema);
+export default Team;
+
+
+
+---------plyers Model ---------
+
+import mongoose from "mongoose";
+
+export type PlayerRole = "batsman" | "bowler" | "all-rounder";
+
+export type Tag = "Player" | "Captain" | "Wise-Captain" | "wicket-keeper";
+
+export interface IPlayers extends Document {
+  playername: string;
+  role: PlayerRole;
+  tags: Tag;
+  teamId: mongoose.Schema.Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const playerSchema = new mongoose.Schema<IPlayers>(
+  {
+    playername: {
+      type: String,
+      required: true,
+    },
+    role: {
+      type: String,
+      enum: ["batsman", "bowler", "all-rounder"],
+      required: true,
+    },
+    tags: {
+      type: String,
+      enum: ["Player", "Captain", "Wise-Captain", "wicket-keeper"],
+      default: "Player",
+    },
+    teamId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Team",
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
+
+const Players = mongoose.model<IPlayers>("Player", playerSchema);
+export default Players;
+
+
+
+---------inning Model ---------
+
+import mongoose, { Schema, Document, Types } from "mongoose";
+
+export interface IInnings extends Document {
+  matchId: Types.ObjectId;
+
+  
+  inningsNumber: 1 | 2;
+  battingTeam: Types.ObjectId;
+  bowlingTeam: Types.ObjectId;
+
+  
+  totalRuns: number;
+  totalWickets: number;
+  oversCompleted: number;
+  ballsInCurrentOver: number; 
+  extras: number;
+ 
+
+  
+  striker: Types.ObjectId;
+  nonStriker: Types.ObjectId;
+
+
+  currentBowler: Types.ObjectId;
+  previousBowler?: Types.ObjectId;
+
+ 
+  target?: number; 
+  status: "ongoing" | "completed";
+  resultType?: "normal" | "all-out" | "overs-completed" | "chased";
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const InningsSchema = new Schema<IInnings>(
+  {
+    matchId: {
+      type: Schema.Types.ObjectId,
+      ref: "Match",
+      required: true,
+    },
+
+    inningsNumber: {
+      type: Number,
+      enum: [1, 2],
+      required: true,
+    },
+
+    battingTeam: {
+      type: Schema.Types.ObjectId,
+      ref: "Team",
+      required: true,
+    },
+
+    bowlingTeam: {
+      type: Schema.Types.ObjectId,
+      ref: "Team",
+      required: true,
+    },
+
+  
+    totalRuns: {
+      type: Number,
+      default: 0,
+    },
+
+    totalWickets: {
+      type: Number,
+      default: 0,
+    },
+
+    oversCompleted: {
+      type: Number,
+      default: 0,
+    },
+
+    ballsInCurrentOver: {
+      type: Number,
+      min: 0,
+      max: 5,
+      default: 0,
+    },
+
+    extras: {
+      type: Number,
+      default: 0,
+    },
+ 
+
+    
+    striker: {
+      type: Schema.Types.ObjectId,
+      ref: "Player",
+      required: true,
+    },
+
+    nonStriker: {
+      type: Schema.Types.ObjectId,
+      ref: "Player",
+      required: true,
+    },
+
+    
+    currentBowler: {
+      type: Schema.Types.ObjectId,
+      ref: "Player",
+      required: true,
+    },
+
+    previousBowler: {
+      type: Schema.Types.ObjectId,
+      ref: "Player",
+    },
+
+    
+    target: {
+      type: Number,
+    },
+
+    status: {
+      type: String,
+      enum: ["ongoing", "completed"],
+      default: "ongoing",
+    },
+
+    resultType: {
+      type: String,
+      enum: ["normal", "all-out", "overs-completed", "chased"],
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+export default mongoose.model<IInnings>("Innings", InningsSchema);
+
+
+---------ball Model ---------
+
+import mongoose, { Schema, Document, Types } from "mongoose";
+
+export interface IBall extends Document {
+
+  matchId: Types.ObjectId;
+  inningsId: Types.ObjectId;
+
+ 
+  overNumber: number;
+  ballNumber: number;
+  isLegalDelivery: boolean;
+
+  
+  batsman: Types.ObjectId;
+  bowler: Types.ObjectId;
+
+  
+  runsScored: number;
+  extraType?: "wide" | "no-ball" | "bye" | "leg-bye" | null;
+  extraRuns?: number;
+
+ 
+  isWicket: boolean;
+  wicketType?: 
+    | "bowled"
+    | "caught"
+    | "lbw"
+    | "run-out"
+    | "stumped"
+    | "hit-wicket"
+    | "retired-out";
+  outPlayer?: Types.ObjectId;
+
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const BallSchema = new Schema<IBall>(
+  {
+   
+    matchId: {
+      type: Schema.Types.ObjectId,
+      ref: "Match",
+      required: true,
+    },
+    inningsId: {
+      type: Schema.Types.ObjectId,
+      ref: "Innings",
+      required: true,
+    },
+
+    
+    overNumber: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    ballNumber: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 5,
+    },
+    isLegalDelivery: {
+      type: Boolean,
+      required: true,
+      default: true,
+    },
+
+    
+    batsman: {
+      type: Schema.Types.ObjectId,
+      ref: "Player",
+      required: true,
+    },
+    bowler: {
+      type: Schema.Types.ObjectId,
+      ref: "Player",
+      required: true,
+    },
+
+    
+    runsScored: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
+    },
+    extraType: {
+      type: String,
+      enum: ["wide", "no-ball", "bye", "leg-bye", null],
+      default: null,
+    },
+    extraRuns: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    
+    isWicket: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+    wicketType: {
+      type: String,
+      enum: [
+        "bowled",
+        "caught",
+        "lbw",
+        "run-out",
+        "stumped",
+        "hit-wicket",
+        "retired-out",
+      ],
+    },
+    outPlayer: {
+      type: Schema.Types.ObjectId,
+      ref: "Player",
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+
+BallSchema.pre("validate", function () {
+  if (this.isWicket) {
+    if (!this.wicketType || !this.outPlayer) {
+      throw new Error(
+        "wicketType and outPlayer are required when isWicket is true"
+      );
+    }
+  }
+});
+
+export default mongoose.model<IBall>("Ball", BallSchema);
