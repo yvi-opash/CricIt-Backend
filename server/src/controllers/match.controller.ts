@@ -62,13 +62,13 @@ export const playingTeam = async (req: Request, res: Response) => {
     const match = await Match.findById(matchId);
     if (!match) return res.status(404).json({ message: "match not found.." });
 
-    if (playingTeamA === playingTeamB)
-      return res.status(400).json({ message: "teams must be different......" });
+    // if (playingTeamA === playingTeamB)
+    //   return res.status(400).json({ message: "teams must be different......" });
 
-    if (playingTeamA.length !== playingTeamB.length)
-      return res
-        .status(400)
-        .json({ message: "each team have same number of players..." });
+    // if (playingTeamA.length !== playingTeamB.length)
+    //   return res
+    //     .status(400)
+    //     .json({ message: "each team have same number of players..." });
 
     match.playingTeamA = playingTeamA;
     match.playingTeamB = playingTeamB;
@@ -187,10 +187,10 @@ export const matchDetail = async (req: Request, res: Response) => {
     const { matchId } = req.params;
 
     const match = await Match.findById(matchId)
-      .populate("teamA", "teamName")
-      .populate("teamB", "teamName")
-      .populate("tossWinner", "teamName")
-      .populate("winner", "teamName");
+      .populate("teamA", "teamname")
+      .populate("teamB", "teamname")
+      .populate("tossWinner", "teamname")
+      .populate("winner", "teamname");
 
     if (!match)
       return res.status(404).json({ message: "match not created...." });

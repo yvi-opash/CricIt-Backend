@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 import User from "../model/users.model";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import Match from '../model/match.model';
+// import Match from '../model/match.model';
 
 export const registercontroller = async (req : Request, res : Response) => {
     try {
@@ -32,7 +32,7 @@ export const registercontroller = async (req : Request, res : Response) => {
         await user.save();
 
             const token = jwt.sign({id: user._id }, process.env.JWT_SECRET || 'secret', { expiresIn: '2d' });
-    res.status(201).json({ message: 'User registered successfully......' });
+    res.status(200).json({ message: 'User registered successfully......' });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error });
     }
@@ -74,7 +74,7 @@ import { request } from "https";
 
 export const createMatch = async (req: AuthRequest, res: Response) => {
   try {
-    const { teamA, teamB } = req.body;
+    const { teamA, teamB, matchType, venue, matchDate, totalOverInMatch } = req.body;
     const createdBy = req.user?.id;
 
     if (!createdBy) {
@@ -100,15 +100,22 @@ export const createMatch = async (req: AuthRequest, res: Response) => {
     const match = new Match({
       teamA,
       teamB,
+      matchType,
+      venue,
+      matchDate,
+      totalOverInMatch,
       status: MatchStatus.UPCOMING,
       createdBy,
     });
 
+    if(totalOverInMatch > 50 && totalOverInMatch < 0){
+      res.status(400).json({message: "Enter Valid Over"})
+    }
+
+
+
     await match.save();
-    res.status(200).json({
-      message: "match created",
-      match,
-    });
+    res.status(200).json({message: "match created",match});
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
@@ -263,9 +270,10 @@ export const matchDetail = async (req: Request, res: Response) => {
 
 
 
+
 ---------team Controller ----------
 
-import {Request, Response } from 'express';
+import e, {Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import Team from "../model/team.model";
 
@@ -297,14 +305,37 @@ export const createTeam = async (req: AuthRequest, res: Response) => {
     }
 }
 
-export const getAllTeams = async (req: Request, res: Response) => {
-    try{
-        const teams = await Team.find().populate('createdBy', 'username email');
+export const getAllTeam = async (req: AuthRequest, res: Response) => {
+    try {
+        const teams = await Team.find({ createdBy: req.user?.id }).populate('createdBy', 'username email');
+
+        const createdBy = req.user?.id;
+        if(!createdBy) {
+            return res.status(401).json({message: "Unauthorized"});
+        }
+
         res.status(200).json(teams);
-    }catch(error){
-        res.status(500).json({ message: 'Server error', error });
+    } catch (error) {
+         res.status(500).json({ message: 'Server error', error });
     }
 }
+
+
+// export const getAllTeamsbyId = async (req: AuthRequest, res: Response) => {
+//   try {
+//     const userId = req.user?.id;
+
+//     if (!userId) {
+//       return res.status(401).json({ message: "Unauthorized" });
+//     }
+
+//     const teams = await Team.find({ createdBy: userId });
+
+//     res.status(200).json(teams);
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error });
+//   }
+// };
 
 export const deleteTeam = async (req: AuthRequest, res:Response) => {
     try{
@@ -317,18 +348,18 @@ export const deleteTeam = async (req: AuthRequest, res:Response) => {
 
         const team = await Team.findById(id);
 
-        if(!team) {
-            return res.status(404).json({message: "Team not found....."});
-        }
+        // if(!team) {
+        //     return res.status(404).json({message: "Team not found....."});
+        // }
 
-        if(team.createdBy.toString() !== userId) {
-            return res.status(403).json({message: "You can only delete your own teams.."});
-        }
+        // if(team.createdBy.toString() !== userId) {
+        //     return res.status(403).json({message: "You can only delete your own teams.."});
+        // }
 
         await Team.findByIdAndDelete(id);
         res.status(200).json({message: "team deleted"});
     }catch(error){
-       res.status(500).json({ message: 'Server error', error });
+       res.status(500).json({ message: 'Server errors', error });
      }
  }
 
@@ -338,35 +369,47 @@ export const deleteTeam = async (req: AuthRequest, res:Response) => {
 ---------player Controller ----------
 
 import { Request, Response } from "express";
+import { AuthRequest } from '../middleware/auth.middleware';
 import Players from '../model/players.model'
 
 
-export const createPlayer = async(req : Request, res: Response) =>{
+export const createPlayer = async(req : AuthRequest, res: Response) =>{
    try{
-     const {playername, role, tags, teamId} = req.body;
 
-    if(!playername || !role ||!tags || !teamId){
-        return res.status(400).json({message: "playername, role, and teamId are required."})
-    }
+     const {playername, role, tags} = req.body;
+     const  createdBy  = req.user?.id;    
 
-    const player = new Players({
-        playername,
-        role,
-        tags,
-        teamId
-    })
+     if(!playername || !role ||!tags ){
+           return res.status(400).json({message: "playername, role, and teamId are required."})
+       }
 
-    await player.save();
-    res.json({message: "player created successfully..", player})
+       if(!createdBy) {
+            return res.status(401).json({message: "Unauthorized"});
+        }
+
+     const player = new Players({
+          playername,
+          role,
+          tags,
+          createdBy
+      })
+
+     await player.save();
+      res.json({message: "player created successfully..", player})
    
-    }catch(error){
-        res.status(500).json({ message: 'Server error.', error });
-    }
+     }catch(error){
+         res.status(500).json({ message: 'Server error.', error });
+     }
 }
 
-export const getAllPlayer = async (req : Request, res: Response) => {
+export const getAllPlayer = async (req : AuthRequest, res: Response) => {
     try{
-        const players = await Players.find().populate('teamId', 'teamname');
+        const players = await Players.find({ createdBy: req.user?.id }).populate('createdBy', 'username email');
+
+        const createdBy = req.user?.id;
+        if(!createdBy) {
+            return res.status(401).json({message: "Unauthorized"});
+        }
         res.status(200).json(players);
     }catch(error){
         res.status(500).json({ message: 'Server error', error });
@@ -385,14 +428,15 @@ export const deletePlayer = async (req: Request, res:Response) => {
 }
 
 
+
 export const updatePlayer = async (req : Request, res: Response) => {
     try {
         const {id} = req.params;
-        const {playername, role, tags} = req.body;
+        const {playername, role, tags } = req.body;
 
         const player = await Players.findByIdAndUpdate(
             id,
-            {playername, role, tags},
+            {playername, role, tags },
             {new: true, runValidators: true}
         );
 
@@ -405,7 +449,6 @@ export const updatePlayer = async (req : Request, res: Response) => {
         res.status(500).json({ message: 'Server error', error });
     }
 }
-
 
 ---------inning Controller ----------
 

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import User from "../model/users.model";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+// import { AuthRequest } from "../middleware/auth.middleware";
 // import Match from '../model/match.model';
 
 export const registercontroller = async (req : Request, res : Response) => {
@@ -58,6 +59,10 @@ export const logincontroller = async (req: Request, res : Response) =>{
     } catch (error) {
          res.status(500).json({ message: 'Server error', error});
     }
+}
+
+export const logoutcontroller = async (req: Request , res: Response) => {
+    res.status(200).json({ message: 'User logged out successfully' });
 }
 
 

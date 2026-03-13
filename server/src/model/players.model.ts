@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Schema, Document, Types } from "mongoose";
 
 export type PlayerRole = "batsman" | "bowler" | "all-rounder";
 
@@ -8,13 +8,11 @@ export interface IPlayers extends Document {
   playername: string;
   role: PlayerRole;
   tags: Tag;
-  // teamId: mongoose.Schema.Types.ObjectId;
-  createdBy: mongoose.Types.ObjectId;
-  createdAt: Date;
-  updatedAt: Date;
+  teamId: Types.ObjectId;
+  createdBy: Types.ObjectId;
 }
 
-const playerSchema = new mongoose.Schema<IPlayers>(
+const playerSchema = new Schema<IPlayers>(
   {
     playername: {
       type: String,
@@ -30,21 +28,18 @@ const playerSchema = new mongoose.Schema<IPlayers>(
       enum: ["Player", "Captain", "Wise-Captain", "wicket-keeper"],
       default: "Player",
     },
-    // teamId: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: "Team",
-    //   required: true,
-    // },
+    teamId: {
+      type: Schema.Types.ObjectId,
+      ref: "Team",
+      required: true,
+    },
     createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true }
 );
 
-const Players = mongoose.model<IPlayers>("Player", playerSchema);
-export default Players;
+export default mongoose.model<IPlayers>("Player", playerSchema);

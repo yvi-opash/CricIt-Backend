@@ -2,27 +2,84 @@
 
 import mongoose from "mongoose";
 
-export interface IUser extends Document{
-    username: string;
-    age: number;
-    email: string;
-    phone: string;
-    password: string;
+export interface IUser extends Document {
+  username: string;
+  age: number;
+  email: string;
+  phone: string;
+  password: string;
 }
 
 const userSchema = new mongoose.Schema<IUser>({
-    username:{type: String, required: true},
-    age:{type: Number, required: true},
-    email:{type: String, required: true, unique: true},
-    phone:{type: String, required: true, unique: true, match: [/^\+91\d{10}$/, "Phone must be Indian number with +91"]    },
-    password:{type: String, required: true}
-})
+  username: { type: String, required: true },
+  age: { type: Number, required: true },
+  email: { type: String, required: true, unique: true },
+  phone: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  password: { type: String, required: true },
+});
 
-const User = mongoose.model<IUser>('User', userSchema);
+const User = mongoose.model<IUser>("User", userSchema);
 export default User;
 
-
 ---------match Model ---------
+
+// import mongoose, { Document, Schema, Types } from "mongoose";
+
+// export enum MatchStatus {
+//   UPCOMING = "upcoming",
+//   TOSS = "toss",
+//   LIVE = "live",
+//   FINISHED = "finished",
+//   ABANDONED = "abandoned",
+// }
+
+// export interface IMatch extends Document {
+//   teamA: Types.ObjectId;
+//   teamB: Types.ObjectId;
+//   status: MatchStatus;
+//   createdBy: Types.ObjectId;
+//   createdAt: Date;
+//   updatedAt: Date;
+// }
+
+// const matchSchema = new Schema<IMatch>(
+//   {
+//     teamA: {
+//       type: Schema.Types.ObjectId,
+//       ref: "Team",
+//       required: true,
+//     },
+//     teamB: {
+//       type: Schema.Types.ObjectId,
+//       ref: "Team",
+//       required: true,
+//     },
+//     status: {
+//       type: String,
+//       enum: Object.values(MatchStatus),
+//       default: MatchStatus.UPCOMING,
+//     },
+//     createdBy: {
+//       type: Schema.Types.ObjectId,
+//       ref: "User",
+//       required: true,
+//     },
+//   },
+//   {
+//     timestamps: true,
+//   }
+// );
+
+
+
+
+// const Match = mongoose.model<IMatch>("Match", matchSchema);
+// export default Match;
+
 
 import mongoose, { Schema, Types, HydratedDocument } from "mongoose";
 
@@ -39,6 +96,7 @@ export enum MatchType {
   T20 = "t20",
   ODI = "odi",
   BOX = "box-cricket",
+  Simple = "simple",
 }
 
 export enum TossDecision {
@@ -59,9 +117,10 @@ export interface IMatch {
   matchType: MatchType;
   venue: string;
   matchDate: Date;
+  totalOverInMatch: number;
 
-  playing11TeamA: Types.ObjectId[];
-  playing11TeamB: Types.ObjectId[];
+  playingTeamA: Types.ObjectId[];
+  playingTeamB: Types.ObjectId[];
 
   status: MatchStatus;
 
@@ -104,14 +163,14 @@ const matchSchema = new Schema<IMatch>(
     },
 
 
-     playing11TeamA: [
+     playingTeamA: [
       {
         type: Schema.Types.ObjectId,
         ref: "Player",
       },
     ],
 
-    playing11TeamB: [
+    playingTeamB: [
       {
         type: Schema.Types.ObjectId,
         ref: "Player",
@@ -121,17 +180,22 @@ const matchSchema = new Schema<IMatch>(
     matchType: {
       type: String,
       enum: Object.values(MatchType),
-      required: true,
+      // required: true,
     },
 
     venue: {
       type: String,
-      required: true,
+      // required: true,
       trim: true,
     },
 
     matchDate: {
       type: Date,
+    //   required: true,
+     },
+
+    totalOverInMatch: {
+      type: Number,
       required: true,
     },
 
@@ -168,7 +232,7 @@ const matchSchema = new Schema<IMatch>(
   { timestamps: true }
 );
 
-// same team match
+
 matchSchema.pre("save", async function () {
   if (this.teamA.equals(this.teamB)) {
     throw new Error("Team A and Team B cannot be the same");
@@ -197,12 +261,14 @@ matchSchema.pre("save", function () {
   }
 });
 
-// Useful indexes
+
 matchSchema.index({ status: 1 });
 matchSchema.index({ matchDate: 1 });
 matchSchema.index({ teamA: 1, teamB: 1 });
 
-export const Match = mongoose.model<IMatch>("Match", matchSchema);
+const Match = mongoose.model<IMatch>("Match", matchSchema);
+export default Match;
+
 
 
 ---------team Model ---------
@@ -231,8 +297,8 @@ export default Team;
 
 
 
----------plyers Model ---------
 
+---------plyers Model ---------
 import mongoose from "mongoose";
 
 export type PlayerRole = "batsman" | "bowler" | "all-rounder";
@@ -243,7 +309,8 @@ export interface IPlayers extends Document {
   playername: string;
   role: PlayerRole;
   tags: Tag;
-  teamId: mongoose.Schema.Types.ObjectId;
+  // teamId: mongoose.Schema.Types.ObjectId;
+  createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -264,9 +331,14 @@ const playerSchema = new mongoose.Schema<IPlayers>(
       enum: ["Player", "Captain", "Wise-Captain", "wicket-keeper"],
       default: "Player",
     },
-    teamId: {
+    // teamId: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: "Team",
+    //   required: true,
+    // },
+    createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Team",
+      ref: "User",
       required: true,
     },
   },
@@ -288,13 +360,14 @@ export interface IInnings extends Document {
   matchId: Types.ObjectId;
 
   
-  inningsNumber: 1 | 2;
+  inningNumber: 1 | 2;
   battingTeam: Types.ObjectId;
   bowlingTeam: Types.ObjectId;
 
   
   totalRuns: number;
   totalWickets: number;
+  totalOverInMatch: number;
   oversCompleted: number;
   ballsInCurrentOver: number; 
   extras: number;
@@ -325,7 +398,7 @@ const InningsSchema = new Schema<IInnings>(
       required: true,
     },
 
-    inningsNumber: {
+    inningNumber: {
       type: Number,
       enum: [1, 2],
       required: true,
@@ -342,7 +415,10 @@ const InningsSchema = new Schema<IInnings>(
       ref: "Team",
       required: true,
     },
-
+    // totalOverInMatch: {
+    //   type: Number,
+    //   required: true,
+    // },
   
     totalRuns: {
       type: Number,
@@ -418,8 +494,8 @@ const InningsSchema = new Schema<IInnings>(
   }
 );
 
-export default mongoose.model<IInnings>("Innings", InningsSchema);
-
+const Inning = mongoose.model<IInnings>("Innings", InningsSchema);
+export default Inning;
 
 ---------ball Model ---------
 
