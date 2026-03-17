@@ -1,0 +1,50 @@
+---------------- users ---------------
+
+
+router.post('/register', registercontroller);
+router.post('/login', logincontroller);
+router.post('/logout', logoutcontroller);
+
+
+---------------- Team ---------------
+
+router.post('/create', authMiddleware, createTeam);
+router.get('/all',authMiddleware, getAllTeam);
+// router.get('/all/:id', getAllTeamsbyId);
+router.delete('/delete/:id', authMiddleware, deleteTeam);
+
+
+---------------- Players ---------------
+
+router.post('/create',authMiddleware, createPlayer);
+router.get('/all',authMiddleware, getAllPlayer);
+router.delete('/delete/:id', deletePlayer);
+router.put('/update/:id', updatePlayer);
+router.get("/team/:teamId", getPlayersByTeam);
+
+
+---------------- Match ---------------
+
+router.post('/create',authMiddleware, createMatch);
+router.post('/team/:matchId', playingTeam);
+router.post('/toss/:matchId', matchToss);
+router.post('/start/:matchId', startMatch);
+router.post('/finish/:matchId', finishMatch);
+router.get('/detail/:matchId', matchDetail);
+router.get('/all', authMiddleware, getAllMatch);
+
+
+---------------- Inning ---------------
+
+router.post('/create/:matchId', createInning);
+router.post('/updatescore/:id', updatScore);
+router.post('/compleate/:id', compleateInning);
+router.get('/:id', getInningById);
+
+---------------- ball ---------------
+
+router.post("/add/:matchId/:inningId", addBall);
+router.delete("/undo/:inningId", undoLastBall);
+router.get("/score/:inningId", getCurrentScore);
+router.get("/overs/:inningId", getBallsByOver);
+router.get("/commentary/:inningId", getCommentary);

@@ -166,5 +166,22 @@ export const compleateInning = async (req: Request, res: Response) => {
   }
 };
 
+export const getInningById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
 
+    const inning = await Inning.findById(id)
+      .populate("striker", "playername")
+      .populate("nonStriker", "playername")
+      .populate("currentBowler", "playername");
+
+    if (!inning) {
+      return res.status(404).json({ message: "Inning not found" });
+    }
+
+    res.status(200).json(inning);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
 

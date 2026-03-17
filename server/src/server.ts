@@ -6,6 +6,7 @@ import teamRoutes from './routes/team.routes';
 import playerRoutes from './routes/player.routes';
 import matchRoutes from './routes/match.routes';
 import inningRoutes from './routes/inning.routes';
+import ballRoutes from './routes/ball.routes';
 
 const app = express();
 app.use(express.json());
@@ -21,7 +22,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/player', playerRoutes);
 app.use('/api/match', matchRoutes);
-app.use('/api/inning',inningRoutes)
+app.use('/api/inning',inningRoutes);
+app.use('/api/ball', ballRoutes);
 
 const PORT = process.env.PORT || 7000
 
