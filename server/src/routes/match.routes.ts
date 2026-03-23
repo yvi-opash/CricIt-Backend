@@ -12,7 +12,7 @@ router.post('/toss/:matchId', matchToss);
 router.post('/start/:matchId', startMatch);
 router.post('/finish/:matchId', finishMatch);
 router.get('/detail/:matchId', matchDetail);
-router.get('/all', authMiddleware, getAllMatch);
+router.get('/all',  getAllMatch);
 router.get('/live', getLiveMatches);
 
 export default router;

@@ -33,21 +33,41 @@ export const createInning = async (req: Request, res: Response) => {
     let battingTeam: any;
     let bowlingTeam: any;
 
-    if(innings.length === 0 ){
+    // if(innings.length === 0 ){
+    //   inningNumber = 1;
+
+    //   const opponent = match.tossWinner?.toString() === match.teamA.toString()
+    //     ?match.teamB
+    //     : match.teamA;
+
+    //     if(match.tossDecision === TossDecision.BAT) {
+    //       battingTeam = match.tossWinner;
+    //       bowlingTeam = opponent;
+    //     }else{
+    //       battingTeam = opponent;
+    //       bowlingTeam = match.tossWinner;
+    //     }
+    // }
+
+
+    // ⭐ FIRST INNING
+    if (innings.length === 0) {
       inningNumber = 1;
 
-      const opponent = match.tossWinner?.toString() === match.teamA.toString()
-        ?match.teamB
-        : match.teamA;
+      const opponent =
+        match.tossWinner?.toString() === match.teamA._id.toString()
+          ? match.teamB._id
+          : match.teamA._id;
 
-        if(match.tossDecision === TossDecision.BAT) {
-          battingTeam = match.tossWinner;
-          bowlingTeam = opponent;
-        }else{
-          battingTeam = opponent;
-          bowlingTeam = match.tossWinner;
-        }
+      if (match.tossDecision === TossDecision.BAT) {
+        battingTeam = match.tossWinner;
+        bowlingTeam = opponent;
+      } else {
+        battingTeam = opponent;
+        bowlingTeam = match.tossWinner;
+      }
     }
+
 
     else if(innings.length === 1) {
       const firstInning = innings[0];

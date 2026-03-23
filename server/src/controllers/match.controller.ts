@@ -206,15 +206,15 @@ export const matchDetail = async (req: Request, res: Response) => {
 };
 
 
-export const getAllMatch = async (req: AuthRequest, res: Response) => {
+export const getAllMatch = async (req: Request, res: Response) => {
   try {
-    const createdBy = req.user?.id;
+    // const createdBy = req.user?.id;
 
-    if (!createdBy) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+    // if (!createdBy) {
+    //   return res.status(401).json({ message: "Unauthorized" });
+    // }
 
-    const matches = await Match.find({ createdBy })
+    const matches = await Match.find()
       .populate("teamA", "teamname")   
       .populate("teamB", "teamname")   
       .sort({ createdAt: -1 });
