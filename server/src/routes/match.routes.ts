@@ -1,5 +1,5 @@
 import express from 'express'
-import { createMatch, finishMatch, getAllMatch, getLiveMatches, matchDetail, matchToss, playingTeam } from '../controllers/match.controller';
+import { createMatch, endMatch, getAllMatch, getLiveMatches, matchDetail, matchToss, playingTeam } from '../controllers/match.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 
 
@@ -10,9 +10,10 @@ router.post('/create',authMiddleware, createMatch);
 router.post('/team/:matchId', playingTeam);
 router.post('/toss/:matchId', matchToss);
 // router.post('/start/:matchId', startMatch);
-router.post('/finish/:matchId', finishMatch);
+router.post('/end/:matchId', endMatch);
 router.get('/detail/:matchId', matchDetail);
 router.get('/all',  getAllMatch);
 router.get('/live', getLiveMatches);
+
 
 export default router;

@@ -24,6 +24,7 @@ export const startInning = async (req: Request, res: Response) => {
       inningNumber: 1,
     });
 
+    
     let inningNumber: number;
     let battingTeam: any;
     let bowlingTeam: any;
@@ -81,6 +82,7 @@ export const startInning = async (req: Request, res: Response) => {
       currentBowler,
       ballsInCurrentOver: 0,
       status: "ongoing",
+      totalOvers : match.totalOverInMatch,
     });
 
     await inning.save();
@@ -166,7 +168,7 @@ export const getInningById = async (req: Request, res: Response) => {
       .populate("striker", "playername")
       .populate("nonStriker", "playername")
       .populate("currentBowler", "playername");
-
+      
     if (!inning) {
       return res.status(404).json({ message: "Inning not found" });
     }
@@ -255,10 +257,11 @@ export const startSecondInning = async (req: Request, res: Response) => {
       ballsInCurrentOver: 0,
       target: firstInning.totalRuns + 1,
       status: "ongoing",
+      totalOvers : match!.totalOverInMatch,
     });
 
-    res.status(201).json({ inning });
 
+    res.status(200).json(inning);
   } catch (err) {
     res.status(500).json({ message: "Server error", err });
   }

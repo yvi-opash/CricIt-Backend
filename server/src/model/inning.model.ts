@@ -3,30 +3,24 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 export interface IInnings extends Document {
   matchId: Types.ObjectId;
 
-  
   inningNumber: 1 | 2;
   battingTeam: Types.ObjectId;
   bowlingTeam: Types.ObjectId;
 
-  
   totalRuns: number;
   totalWickets: number;
-  totalOverInMatch: number;
+  totalOvers: number;
   oversCompleted: number;
-  ballsInCurrentOver: number; 
+  ballsInCurrentOver: number;
   extras: number;
- 
 
-  
   striker: Types.ObjectId;
   nonStriker: Types.ObjectId;
-
 
   currentBowler: Types.ObjectId;
   previousBowler?: Types.ObjectId;
 
- 
-  target?: number; 
+  target?: number;
   status: "ongoing" | "completed";
   resultType?: "normal" | "all-out" | "overs-completed" | "chased";
 
@@ -59,11 +53,11 @@ const InningsSchema = new Schema<IInnings>(
       ref: "Team",
       required: true,
     },
-    // totalOverInMatch: {
-    //   type: Number,
-    //   required: true,
-    // },
-  
+    totalOvers: {
+      type: Number,
+      required: true,
+    },
+
     totalRuns: {
       type: Number,
       default: 0,
@@ -90,9 +84,7 @@ const InningsSchema = new Schema<IInnings>(
       type: Number,
       default: 0,
     },
- 
 
-    
     striker: {
       type: Schema.Types.ObjectId,
       ref: "Player",
@@ -105,7 +97,6 @@ const InningsSchema = new Schema<IInnings>(
       // required: true,
     },
 
-    
     currentBowler: {
       type: Schema.Types.ObjectId,
       ref: "Player",
@@ -117,7 +108,6 @@ const InningsSchema = new Schema<IInnings>(
       ref: "Player",
     },
 
-    
     target: {
       type: Number,
     },

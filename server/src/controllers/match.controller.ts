@@ -115,33 +115,75 @@ export const matchToss = async (req: Request, res: Response) => {
 
 
 
-export const finishMatch = async (req: Request, res: Response) => {
-  try {
-    const { matchId } = req.params;
+// export const endMatch = async (req: Request, res: Response) => {
+//   try {
+//     const { matchId } = req.params;
 
-    const match = await Match.findById(matchId);
+//     const match = await Match.findById(matchId);
 
-    if (!match)
-      return res.status(404).json({ message: "match is not created...." });
+//     if (!match)
+//       return res.status(404).json({ message: "match is not created...." });
 
-    if (!match.teamAScore || !match.teamBScore)
-      return res.status(400).json({ message: "scores not available", match });
+//     if (!match.teamAScore || !match.teamBScore)
+//       return res.status(400).json({ message: "scores not available", match });
 
-    if (match.teamAScore.runs > match.teamBScore.runs) {
-      match.winner = match.teamA;
-    } else if (match.teamBScore.runs > match.teamAScore.runs) {
-      match.winner = match.teamB;
-    } else {
-      return res.status(400).json({ message: "match is tie" });
-    }
+//     if (match.teamAScore.runs > match.teamBScore.runs) {
+//       match.winner = match.teamA;
+//     } else if (match.teamBScore.runs > match.teamAScore.runs) {
+//       match.winner = match.teamB;
+//     } else {
+//       return res.status(400).json({ message: "match is tie" });
+//     }
 
-    match.status = MatchStatus.FINISHED;
-    await match.save();
-    res.json({ message: "match finished", match });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error });
-  }
-};
+//     match.status = MatchStatus.FINISHED;
+//     await match.save();
+//     res.json({ message: "match finished", match });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error });
+//   }
+// };
+
+
+
+// export const endMatch = async (req: Request, res: Response) => {
+//   try {
+//     const { matchId } = req.params;
+
+//     const match = await Match.findById(matchId);
+//     if (!match) {
+//       return res.status(404).json({ message: "Match not found" });
+//     }
+
+//     const inning1 = await Inning.findOne({ matchId, inningNumber: 1 });
+//     const inning2 = await Inning.findOne({ matchId, inningNumber: 2 });
+
+//     if (!inning1 || !inning2) {
+//       return res.status(400).json({ message: "Both innings not found" });
+//     }
+
+//     if (inning2.status !== "completed") {
+//       return res.status(400).json({ message: "Second inning not completed" });
+//     }
+
+//     if (inning1.totalRuns > inning2.totalRuns) {
+//       match.winner = inning1.battingTeam;
+//     } else if (inning2.totalRuns > inning1.totalRuns) {
+//       match.winner = inning2.battingTeam;
+//     }
+
+//     match.status = MatchStatus.FINISHED;
+
+//     await match.save();
+
+//     res.json({
+//       message: "Match finished",
+//       winner: match.winner,
+//       match,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error });
+//   }
+// };
 
 export const matchDetail = async (req: Request, res: Response) => {
   try {
