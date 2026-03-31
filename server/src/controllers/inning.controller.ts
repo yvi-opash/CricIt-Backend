@@ -257,7 +257,7 @@ export const startSecondInning = async (req: Request, res: Response) => {
       ballsInCurrentOver: 0,
       target: firstInning.totalRuns + 1,
       status: "ongoing",
-      totalOvers : match!.totalOverInMatch,
+      totalOvers : match?.totalOverInMatch,
     });
 
 

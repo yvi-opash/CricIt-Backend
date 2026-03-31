@@ -42,14 +42,14 @@ export const createMatch = async (req: AuthRequest, res: Response) => {
       createdBy,
     });
 
-    if(totalOverInMatch > 50 && totalOverInMatch < 0){
-      res.status(400).json({message: "Enter Valid Over"})
+    if (totalOverInMatch > 50 && totalOverInMatch < 0) {
+      res.status(400).json({ message: "Enter Valid Over" })
     }
 
 
 
     await match.save();
-    res.status(200).json({message: "match created",match});
+    res.status(200).json({ message: "match created", match });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
@@ -114,76 +114,255 @@ export const matchToss = async (req: Request, res: Response) => {
 };
 
 
-
-// export const endMatch = async (req: Request, res: Response) => {
+// export const EndMatch = async (req: Request, res: Response) => {
 //   try {
 //     const { matchId } = req.params;
 
-//     const match = await Match.findById(matchId);
-
-//     if (!match)
-//       return res.status(404).json({ message: "match is not created...." });
-
-//     if (!match.teamAScore || !match.teamBScore)
-//       return res.status(400).json({ message: "scores not available", match });
-
-//     if (match.teamAScore.runs > match.teamBScore.runs) {
-//       match.winner = match.teamA;
-//     } else if (match.teamBScore.runs > match.teamAScore.runs) {
-//       match.winner = match.teamB;
-//     } else {
-//       return res.status(400).json({ message: "match is tie" });
-//     }
-
-//     match.status = MatchStatus.FINISHED;
-//     await match.save();
-//     res.json({ message: "match finished", match });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error });
-//   }
-// };
-
-
-
-// export const endMatch = async (req: Request, res: Response) => {
-//   try {
-//     const { matchId } = req.params;
-
+//     // Get match
 //     const match = await Match.findById(matchId);
 //     if (!match) {
 //       return res.status(404).json({ message: "Match not found" });
 //     }
 
-//     const inning1 = await Inning.findOne({ matchId, inningNumber: 1 });
-//     const inning2 = await Inning.findOne({ matchId, inningNumber: 2 });
+//     // Get both innings with populate
+//     const innings = await Inning.find({ matchId })
+//       .sort({ inningNumber: 1 })
+//       .populate("battingTeam", "teamname")
+//       .populate("bowlingTeam", "teamname")
+//       .lean(); // ← Add .lean() to get plain objects
 
-//     if (!inning1 || !inning2) {
-//       return res.status(400).json({ message: "Both innings not found" });
+//     if (innings.length !== 2) {
+//       return res.status(400).json({ message: "Both innings not completed" });
 //     }
 
-//     if (inning2.status !== "completed") {
+//     const firstInning = innings[0];
+//     const secondInning = innings[1];
+
+//     // Validate second inning is completed
+//     if (secondInning.status !== "completed") {
 //       return res.status(400).json({ message: "Second inning not completed" });
 //     }
 
-//     if (inning1.totalRuns > inning2.totalRuns) {
-//       match.winner = inning1.battingTeam;
-//     } else if (inning2.totalRuns > inning1.totalRuns) {
-//       match.winner = inning2.battingTeam;
+//     // Get scores
+//     const firstInningRuns = firstInning.totalRuns;
+//     const secondInningRuns = secondInning.totalRuns;
+//     const secondInningWickets = secondInning.totalWickets;
+
+//     // ✅ FIX: Type assertion for populated team data
+//     const firstBattingTeam = firstInning.battingTeam as any;
+//     const secondBattingTeam = secondInning.battingTeam as any;
+
+//     const firstInningTeamName =
+//       firstBattingTeam?.teamname || "Team A";
+//     const secondInningTeamName =
+//       secondBattingTeam?.teamname || "Team B";
+
+
+
+//     const firstInningOvers = firstInning.oversCompleted
+//       ? (Math.floor(firstInning.oversCompleted / 6) + '.' + (firstInning.oversCompleted % 6))
+//       : "0.0";
+
+//     const secondInningOvers = secondInning.oversCompleted
+//       ? (Math.floor(secondInning.oversCompleted / 6) + '.' + (secondInning.oversCompleted % 6))
+//       : "0.0";
+
+//     // Determine winner
+//     let winner = null;
+//     let winnerTeamName = "";
+//     let resultDescription = "";
+//     let resultType = "";
+
+//     if (secondInningRuns > firstInningRuns) {
+//       // 2nd inning batting team wins
+//       winner = secondInning.battingTeam;
+//       winnerTeamName = secondInningTeamName;
+//       const runDifference = secondInningRuns - firstInningRuns;
+//       resultDescription = `${secondInningTeamName} won by ${runDifference} ${runDifference === 1 ? "run" : "runs"
+//         }`;
+//       resultType = "wins_by_runs";
+//     } else if (secondInningRuns < firstInningRuns) {
+//       // 1st inning batting team wins
+//       winner = firstInning.battingTeam;
+//       winnerTeamName = firstInningTeamName;
+//       const wicketDifference = 10 - secondInningWickets;
+//       resultDescription = `${firstInningTeamName} won by ${wicketDifference} ${wicketDifference === 1 ? "wicket" : "wickets"
+//         }`;
+//       resultType = "wins_by_wickets";
+//     } else {
+//       // Match tied
+//       resultDescription = "Match Tied! 🤝";
+//       resultType = "tied";
+//       winnerTeamName = "Tied";
 //     }
 
+//     // Update match
 //     match.status = MatchStatus.FINISHED;
-
+//     if (winner !== null) {
+//       match.winner = winner;
+//     }
 //     await match.save();
 
-//     res.json({
-//       message: "Match finished",
-//       winner: match.winner,
-//       match,
+//     // Return complete response with team names
+//     res.status(200).json({
+//       message: "Match completed successfully",
+//       match: {
+//         _id: match._id,
+//         status: match.status,
+//         winner: match.winner,
+//       },
+//       firstInning: {
+//         inningNumber: 1,
+//         battingTeam: firstInning.battingTeam,
+//         battingTeamName: firstInningTeamName,
+//         bowlingTeam: firstInning.bowlingTeam,
+//         runs: firstInning.totalRuns,
+//         wickets: firstInning.totalWickets,
+//         overs: firstInningOvers,
+//       },
+//       secondInning: {
+//         inningNumber: 2,
+//         battingTeam: secondInning.battingTeam,
+//         battingTeamName: secondInningTeamName,
+//         bowlingTeam: secondInning.bowlingTeam,
+//         runs: secondInning.totalRuns,
+//         wickets: secondInning.totalWickets,
+//         overs: secondInningOvers,
+//       },
+//       winner: winner,
+//       winnerTeamName: winnerTeamName,
+//       resultDescription: resultDescription,
+//       resultType: resultType,
 //     });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error });
+//   } catch (error: any) {
+//     console.error("Error completing match:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
 //   }
 // };
+
+
+
+export const EndMatch = async (req: Request, res: Response) => {
+  try {
+    const { matchId } = req.params;
+ 
+    // Get match
+    const match = await Match.findById(matchId);
+    if (!match) {
+      return res.status(404).json({ message: "Match not found" });
+    }
+ 
+    // Get both innings with populate
+    const innings = await Inning.find({ matchId })
+      .sort({ inningNumber: 1 })
+      .populate("battingTeam", "teamname")
+      .populate("bowlingTeam", "teamname")
+      .lean();
+ 
+    if (innings.length !== 2) {
+      return res.status(400).json({ message: "Both innings not completed" });
+    }
+ 
+    const firstInning = innings[0];
+    const secondInning = innings[1];
+ 
+    // Validate second inning is completed
+    if (secondInning.status !== "completed") {
+      return res.status(400).json({ message: "Second inning not completed" });
+    }
+ 
+    // ✅ Format overs function
+    const formatOvers = (overs: number, balls: number) => {
+      return `${overs}.${balls}`;
+    };
+ 
+    // Get scores
+    const firstInningRuns = firstInning.totalRuns;
+    const secondInningRuns = secondInning.totalRuns;
+    const secondInningWickets = secondInning.totalWickets;
+ 
+    const firstBattingTeam = firstInning.battingTeam as any;
+    const secondBattingTeam = secondInning.battingTeam as any;
+ 
+    const firstInningTeamName =
+      firstBattingTeam?.teamname || "Team A";
+    const secondInningTeamName =
+      secondBattingTeam?.teamname || "Team B";
+ 
+    // Determine winner
+    let winner = null;
+    let winnerTeamName = "";
+    let resultDescription = "";
+    let resultType = "";
+ 
+    if (secondInningRuns > firstInningRuns) {
+      winner = secondInning.battingTeam;
+      winnerTeamName = secondInningTeamName;
+      const runDifference = secondInningRuns - firstInningRuns;
+      resultDescription = `${secondInningTeamName} won by ${runDifference} ${
+        runDifference === 1 ? "run" : "runs"
+      }`;
+      resultType = "wins_by_runs";
+    } else if (secondInningRuns < firstInningRuns) {
+      winner = firstInning.battingTeam;
+      winnerTeamName = firstInningTeamName;
+      const wicketDifference = 10 - secondInningWickets;
+      resultDescription = `${firstInningTeamName} won by ${wicketDifference} ${
+        wicketDifference === 1 ? "wicket" : "wickets"
+      }`;
+      resultType = "wins_by_wickets";
+    } else {
+      resultDescription = "Match Tied! 🤝";
+      resultType = "tied";
+      winnerTeamName = "Tied";
+    }
+ 
+    // Update match
+    match.status = MatchStatus.FINISHED;
+    if (winner !== null) {
+      match.winner = winner;
+    }
+    await match.save();
+ 
+    // Return complete response with formatted overs
+    res.status(200).json({
+      message: "Match completed successfully",
+      match: {
+        _id: match._id,
+        status: match.status,
+        winner: match.winner,
+      },
+      firstInning: {
+        inningNumber: 1,
+        battingTeam: firstInning.battingTeam,
+        battingTeamName: firstInningTeamName,
+        bowlingTeam: firstInning.bowlingTeam,
+        runs: firstInning.totalRuns,
+        wickets: firstInning.totalWickets,
+        overs: formatOvers(firstInning.oversCompleted, firstInning.ballsInCurrentOver), // ✅ Format overs
+      },
+      secondInning: {
+        inningNumber: 2,
+        battingTeam: secondInning.battingTeam,
+        battingTeamName: secondInningTeamName,
+        bowlingTeam: secondInning.bowlingTeam,
+        runs: secondInning.totalRuns,
+        wickets: secondInning.totalWickets,
+        overs: formatOvers(secondInning.oversCompleted, secondInning.ballsInCurrentOver), // ✅ Format overs
+      },
+      winner: winner,
+      winnerTeamName: winnerTeamName,
+      resultDescription: resultDescription,
+      resultType: resultType,
+    });
+  } catch (error: any) {
+    console.error("Error completing match:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
+
 
 export const matchDetail = async (req: Request, res: Response) => {
   try {
@@ -202,7 +381,7 @@ export const matchDetail = async (req: Request, res: Response) => {
 
     res.status(200).json(match);
   } catch (error) {
-     console.log("MATCH DETAIL ERROR:", error);
+    console.log("MATCH DETAIL ERROR:", error);
     res.status(500).json({ message: "Server error", error });
   }
 };
@@ -217,8 +396,8 @@ export const getAllMatch = async (req: Request, res: Response) => {
     // }
 
     const matches = await Match.find()
-      .populate("teamA", "teamname")   
-      .populate("teamB", "teamname")   
+      .populate("teamA", "teamname")
+      .populate("teamB", "teamname")
       .sort({ createdAt: -1 });
 
     res.status(200).json(matches);
