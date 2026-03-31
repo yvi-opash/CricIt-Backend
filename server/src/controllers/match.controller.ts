@@ -121,13 +121,13 @@ export const EndMatch = async (req: Request, res: Response) => {
   try {
     const { matchId } = req.params;
  
-    // Get match
+    
     const match = await Match.findById(matchId);
     if (!match) {
       return res.status(404).json({ message: "Match not found" });
     }
  
-    // Get both innings with populate
+    
     const innings = await Inning.find({ matchId })
       .sort({ inningNumber: 1 })
       .populate("battingTeam", "teamname")
@@ -141,17 +141,17 @@ export const EndMatch = async (req: Request, res: Response) => {
     const firstInning = innings[0];
     const secondInning = innings[1];
  
-    // Validate second inning is completed
+    
     if (secondInning.status !== "completed") {
       return res.status(400).json({ message: "Second inning not completed" });
     }
  
-    // ✅ Format overs function
+    
     const formatOvers = (overs: number, balls: number) => {
       return `${overs}.${balls}`;
     };
  
-    // Get scores
+   
     const firstInningRuns = firstInning.totalRuns;
     const secondInningRuns = secondInning.totalRuns;
     const secondInningWickets = secondInning.totalWickets;
@@ -164,7 +164,7 @@ export const EndMatch = async (req: Request, res: Response) => {
     const secondInningTeamName =
       secondBattingTeam?.teamname || "Team B";
  
-    // Determine winner
+    
     let winner = null;
     let winnerTeamName = "";
     let resultDescription = "";
@@ -192,14 +192,14 @@ export const EndMatch = async (req: Request, res: Response) => {
       winnerTeamName = "Tied";
     }
  
-    // Update match
+    
     match.status = MatchStatus.FINISHED;
     if (winner !== null) {
       match.winner = winner;
     }
     await match.save();
  
-    // Return complete response with formatted overs
+    
     res.status(200).json({
       message: "Match completed successfully",
       match: {
@@ -262,18 +262,60 @@ export const matchDetail = async (req: Request, res: Response) => {
 };
 
 
+// export const matchDetail = async (req: Request, res: Response) => {
+//   try {
+//     const { matchId } = req.params;
+
+    
+//     const match = await Match.findById(matchId)
+//       .populate("teamA", "teamname")
+//       .populate("teamB", "teamname")
+//       .populate("tossWinner", "teamname")
+//       .populate("winner", "teamname")
+//       .populate("playingTeamA", "playername")
+//       .populate("playingTeamB", "playername");
+
+//     if (!match) {
+//       return res.status(404).json({ message: "Match not found" });
+//     }
+
+    
+//     const innings = await Inning.find({ matchId })
+//       .populate("battingTeam", "teamname")
+//       .populate("bowlingTeam", "teamname");
+
+    
+//     const firstInning = innings.find(i => i.inningNumber === 1);
+//     const secondInning = innings.find(i => i.inningNumber === 2);
+
+    
+//     res.status(200).json({
+//       match,
+//       innings,
+//       firstInning,
+//       secondInning
+//     });
+
+//   } catch (error) {
+//     console.log("MATCH DETAIL ERROR:", error);
+//     res.status(500).json({ message: "Server error", error });
+//   }
+// };
+
 export const getAllMatch = async (req: Request, res: Response) => {
   try {
-    // const createdBy = req.user?.id;
-
-    // if (!createdBy) {
-    //   return res.status(401).json({ message: "Unauthorized" });
-    // }
 
     const matches = await Match.find()
       .populate("teamA", "teamname")
       .populate("teamB", "teamname")
+      .populate("tossWinner", "teamname")
+      .populate("winner", "teamname")
+      .populate("playingTeamA", "playername")
+      .populate("playingTeamB", "playername")
       .sort({ createdAt: -1 });
+
+      if (!matches)
+      return res.status(404).json({ message: "match not created...." })
 
     res.status(200).json(matches);
   } catch (error) {
