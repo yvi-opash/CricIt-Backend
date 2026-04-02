@@ -239,34 +239,10 @@ export const EndMatch = async (req: Request, res: Response) => {
 
 
 
-export const matchDetail = async (req: Request, res: Response) => {
-  try {
-    const { matchId } = req.params;
-
-    const match = await Match.findById(matchId)
-      .populate("teamA", "teamname")
-      .populate("teamB", "teamname")
-      .populate("tossWinner", "teamname")
-      .populate("winner", "teamname")
-      .populate("playingTeamA", "playername")
-      .populate("playingTeamB", "playername");
-
-    if (!match)
-      return res.status(404).json({ message: "match not created...." });
-
-    res.status(200).json(match);
-  } catch (error) {
-    console.log("MATCH DETAIL ERROR:", error);
-    res.status(500).json({ message: "Server error", error });
-  }
-};
-
-
 // export const matchDetail = async (req: Request, res: Response) => {
 //   try {
 //     const { matchId } = req.params;
 
-    
 //     const match = await Match.findById(matchId)
 //       .populate("teamA", "teamname")
 //       .populate("teamB", "teamname")
@@ -275,36 +251,42 @@ export const matchDetail = async (req: Request, res: Response) => {
 //       .populate("playingTeamA", "playername")
 //       .populate("playingTeamB", "playername");
 
-//     if (!match) {
-//       return res.status(404).json({ message: "Match not found" });
-//     }
+//     if (!match)
+//       return res.status(404).json({ message: "match not created...." });
 
-    
-//     const innings = await Inning.find({ matchId })
-//       .populate("battingTeam", "teamname")
-//       .populate("bowlingTeam", "teamname");
-
-    
-//     const firstInning = innings.find(i => i.inningNumber === 1);
-//     const secondInning = innings.find(i => i.inningNumber === 2);
-
-    
-//     res.status(200).json({
-//       match,
-//       innings,
-//       firstInning,
-//       secondInning
-//     });
-
+//     res.status(200).json(match);
 //   } catch (error) {
 //     console.log("MATCH DETAIL ERROR:", error);
 //     res.status(500).json({ message: "Server error", error });
 //   }
 // };
 
+
+
+// export const getAllMatch = async (req: Request, res: Response) => {
+//   try {
+
+//     const matches = await Match.find()
+//       .populate("teamA", "teamname")
+//       .populate("teamB", "teamname")
+//       .populate("tossWinner", "teamname")
+//       .populate("winner", "teamname")
+//       .populate("playingTeamA", "playername")
+//       .populate("playingTeamB", "playername")
+//       .sort({ createdAt: -1 });
+
+//       if (!matches)
+//       return res.status(404).json({ message: "match not created...." })
+
+//     res.status(200).json(matches);
+//   } catch (error) {
+//     res.status(500).json({ message: "Server error", error });
+//   }
+// };
+
+
 export const getAllMatch = async (req: Request, res: Response) => {
   try {
-
     const matches = await Match.find()
       .populate("teamA", "teamname")
       .populate("teamB", "teamname")
@@ -313,12 +295,59 @@ export const getAllMatch = async (req: Request, res: Response) => {
       .populate("playingTeamA", "playername")
       .populate("playingTeamB", "playername")
       .sort({ createdAt: -1 });
-
-      if (!matches)
-      return res.status(404).json({ message: "match not created...." })
-
-    res.status(200).json(matches);
+ 
+    if (!matches) {
+      return res.status(404).json({ message: "No matches found" });
+    }
+ 
+    const matchIds = matches.map((m) => m._id);
+ 
+    // Only fetch the fields needed for the card — keeps response light
+    const innings = await Inning.find({ matchId: { $in: matchIds } })
+      .select(
+        "matchId inningNumber battingTeam totalRuns totalWickets oversCompleted ballsInCurrentOver status target"
+      )
+      .populate("battingTeam", "teamname");
+ 
+    const matchesWithInnings = matches.map((match) => ({
+      ...match.toObject(),
+      innings: innings.filter(
+        (inn) => inn.matchId.toString() === match._id.toString()
+      ),
+    }));
+ 
+    res.status(200).json(matchesWithInnings);
   } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+ 
+export const matchDetail = async (req: Request, res: Response) => {
+  try {
+    const { matchId } = req.params;
+ 
+    const match = await Match.findById(matchId)
+      .populate("teamA", "teamname")
+      .populate("teamB", "teamname")
+      .populate("tossWinner", "teamname")
+      .populate("winner", "teamname")
+      .populate("playingTeamA", "playername")
+      .populate("playingTeamB", "playername");
+ 
+    if (!match) {
+      return res.status(404).json({ message: "Match not found" });
+    }
+ 
+    const innings = await Inning.find({ matchId })
+      .populate("battingTeam", "teamname")
+      .populate("bowlingTeam", "teamname")
+      .populate("striker", "playername")
+      .populate("nonStriker", "playername")
+      .populate("currentBowler", "playername");
+ 
+    res.status(200).json({ ...match.toObject(), innings });
+  } catch (error) {
+    console.log("MATCH DETAIL ERROR:", error);
     res.status(500).json({ message: "Server error", error });
   }
 };
