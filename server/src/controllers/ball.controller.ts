@@ -2,6 +2,7 @@ import Match, { MatchStatus } from "../model/match.model";
 import Inning from "../model/inning.model";
 import Ball from "../model/ball.model";
 import { Request, Response } from "express";
+import PlayerStats from "../model/PlayerStats";
 
 export const addBall = async (req: Request, res: Response) => {
   try {
@@ -51,6 +52,56 @@ export const addBall = async (req: Request, res: Response) => {
       outPlayer,
     });
 
+    //----------------------------------------------p
+
+
+
+    const batsmanStats = await PlayerStats.findOne({
+      matchId,
+      inningsId: inningId,
+      playerId: inning.striker,
+    });
+ 
+    if (batsmanStats) {
+      batsmanStats.runsScored += runsScored + extraRuns;
+      batsmanStats.ballsFaced += 1;
+      
+      if (runsScored === 4) batsmanStats.fours += 1;
+      if (runsScored === 6) batsmanStats.sixes += 1;
+ 
+      if (batsmanStats.ballsFaced > 0) {
+        batsmanStats.strikeRate = 
+          (batsmanStats.runsScored / batsmanStats.ballsFaced) * 100;
+      }
+ 
+      await batsmanStats.save();
+    }
+ 
+    // ✅ ADD THIS CODE (Update bowler stats):
+    const bowlerStats = await PlayerStats.findOne({
+      matchId,
+      inningsId: inningId,
+      playerId: bowler || inning.currentBowler,
+    });
+ 
+    if (bowlerStats) {
+      bowlerStats.runsGiven += runsScored + extraRuns;
+      bowlerStats.ballsBowled += 1;
+      
+      if (isWicket) bowlerStats.wicketsTaken += 1;
+ 
+      bowlerStats.oversCompleted = Math.floor(bowlerStats.ballsBowled / 6);
+ 
+      if (bowlerStats.oversCompleted > 0) {
+        bowlerStats.economy = 
+          bowlerStats.runsGiven / bowlerStats.oversCompleted;
+      }
+ 
+      await bowlerStats.save();
+    }
+
+
+//----------------------------------------------p
     //  runs
     inning.totalRuns += runsScored + extraRuns;
 

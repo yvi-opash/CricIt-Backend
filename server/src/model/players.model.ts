@@ -51,7 +51,7 @@ export type PlayerRole = "batsman" | "bowler" | "all-rounder";
 
 export type Tag = "Player" | "Captain" | "Wise-Captain" | "wicket-keeper";
 
-// Career stats stored in Player model
+
 interface ICareerStats {
   totalRuns: number;
   totalWickets: number;
@@ -67,7 +67,7 @@ export interface IPlayers extends Document {
   tags: Tag;
   createdBy: mongoose.Types.ObjectId;
   
-  // Career stats (summary only)
+ 
   careerStats: ICareerStats;
   
   createdAt: Date;
