@@ -2,7 +2,8 @@ import Match, { MatchStatus } from "../model/match.model";
 import Inning from "../model/inning.model";
 import Ball from "../model/ball.model";
 import { Request, Response } from "express";
-import PlayerStats from "../model/PlayerStats";
+import PlayerHistory from "../model/PlayerHistory.model";
+
 
 export const addBall = async (req: Request, res: Response) => {
   try {
@@ -52,56 +53,55 @@ export const addBall = async (req: Request, res: Response) => {
       outPlayer,
     });
 
-    //----------------------------------------------p
+    // 🟢 BATSMAN UPDATE
+await PlayerHistory.findOneAndUpdate(
+  { playerId: inning.striker, matchId },
+  {
+    $inc: {
+      battingRuns: runsScored,
+      battingBalls: isLegalDelivery ? 1 : 0,
+      fours: runsScored === 4 ? 1 : 0,
+      sixes: runsScored === 6 ? 1 : 0,
+    },
+  },
+   { upsert: true, new: true }
+);
 
+// 🔵 BOWLER UPDATE
+await PlayerHistory.findOneAndUpdate(
+  { playerId: bowler || inning.currentBowler, matchId },
+  {
+    $inc: {
+      runsConceded: runsScored + extraRuns,
+      bowlingBalls: isLegalDelivery ? 1 : 0,
+      wickets: isWicket ? 1 : 0,
+    },
+  },
+   { upsert: true, new: true }
+);
 
-
-    const batsmanStats = await PlayerStats.findOne({
-      matchId,
-      inningsId: inningId,
-      playerId: inning.striker,
-    });
- 
-    if (batsmanStats) {
-      batsmanStats.runsScored += runsScored + extraRuns;
-      batsmanStats.ballsFaced += 1;
-      
-      if (runsScored === 4) batsmanStats.fours += 1;
-      if (runsScored === 6) batsmanStats.sixes += 1;
- 
-      if (batsmanStats.ballsFaced > 0) {
-        batsmanStats.strikeRate = 
-          (batsmanStats.runsScored / batsmanStats.ballsFaced) * 100;
-      }
- 
-      await batsmanStats.save();
+// 🔴 WICKET UPDATE (BATSMAN OUT)
+if (isWicket && outPlayer) {
+  await PlayerHistory.findOneAndUpdate(
+    { playerId: outPlayer, matchId },
+    {
+      isOut: true,
+      outType: wicketType,
     }
- 
-    // ✅ ADD THIS CODE (Update bowler stats):
-    const bowlerStats = await PlayerStats.findOne({
-      matchId,
-      inningsId: inningId,
-      playerId: bowler || inning.currentBowler,
-    });
- 
-    if (bowlerStats) {
-      bowlerStats.runsGiven += runsScored + extraRuns;
-      bowlerStats.ballsBowled += 1;
-      
-      if (isWicket) bowlerStats.wicketsTaken += 1;
- 
-      bowlerStats.oversCompleted = Math.floor(bowlerStats.ballsBowled / 6);
- 
-      if (bowlerStats.oversCompleted > 0) {
-        bowlerStats.economy = 
-          bowlerStats.runsGiven / bowlerStats.oversCompleted;
-      }
- 
-      await bowlerStats.save();
+  );
+}
+
+// 🟡 OVER UPDATE
+if (isLegalDelivery && inning.ballsInCurrentOver === 6) {
+  await PlayerHistory.findOneAndUpdate(
+    { playerId: bowler || inning.currentBowler, matchId },
+    {
+      $inc: { bowlingOvers: 1 },
     }
+  );
+}
 
-
-//----------------------------------------------p
+   
     //  runs
     inning.totalRuns += runsScored + extraRuns;
 

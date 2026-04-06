@@ -1,7 +1,7 @@
 import Match, { MatchStatus, TossDecision } from "../model/match.model";
 import Inning from "../model/inning.model";
 import { Request, Response } from "express";
-import PlayerStats from "../model/PlayerStats";
+// import PlayerStats from "../model/PlayerStats";
 
 export const startInning = async (req: Request, res: Response) => {
   try {
@@ -87,27 +87,7 @@ export const startInning = async (req: Request, res: Response) => {
 
     await inning.save();
 
-    //----------------------------------------------p
-
-    const allPlayingPlayers = [
-  ...match.playingTeamA,
-  ...match.playingTeamB,
-];
- 
-for (const playerId of allPlayingPlayers) {
-  const teamId = match.playingTeamA.includes(playerId) 
-    ? match.teamA 
-    : match.teamB;
- 
-  await PlayerStats.create({
-    matchId,
-    inningsId: inning._id,
-    playerId,
-    teamId,
-  });
-}
-
-//----------------------------------------------p
+    
 
     match.status = MatchStatus.LIVE;
     await match.save();

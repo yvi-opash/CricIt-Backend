@@ -24,14 +24,7 @@ export const createPlayer = async(req : AuthRequest, res: Response) =>{
           tags,
           teamId,
           createdBy,
-          careerStats: {
-            totalRuns: 0,
-            totalWickets: 0,
-            totalMatches: 0,
-            careerStrikeRate: 0,
-            careerEconomy: 0,
-            lastUpdated: new Date(),
-          }
+          
       })
 
      await player.save();

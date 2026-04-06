@@ -75,6 +75,10 @@ export const playingTeam = async (req: Request, res: Response) => {
     match.playingTeamB = playingTeamB;
 
     await match.save();
+
+    await createMatchHistory(match);
+
+
     res.status(200).json(match);
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
@@ -239,51 +243,6 @@ export const EndMatch = async (req: Request, res: Response) => {
 
 
 
-// export const matchDetail = async (req: Request, res: Response) => {
-//   try {
-//     const { matchId } = req.params;
-
-//     const match = await Match.findById(matchId)
-//       .populate("teamA", "teamname")
-//       .populate("teamB", "teamname")
-//       .populate("tossWinner", "teamname")
-//       .populate("winner", "teamname")
-//       .populate("playingTeamA", "playername")
-//       .populate("playingTeamB", "playername");
-
-//     if (!match)
-//       return res.status(404).json({ message: "match not created...." });
-
-//     res.status(200).json(match);
-//   } catch (error) {
-//     console.log("MATCH DETAIL ERROR:", error);
-//     res.status(500).json({ message: "Server error", error });
-//   }
-// };
-
-
-
-// export const getAllMatch = async (req: Request, res: Response) => {
-//   try {
-
-//     const matches = await Match.find()
-//       .populate("teamA", "teamname")
-//       .populate("teamB", "teamname")
-//       .populate("tossWinner", "teamname")
-//       .populate("winner", "teamname")
-//       .populate("playingTeamA", "playername")
-//       .populate("playingTeamB", "playername")
-//       .sort({ createdAt: -1 });
-
-//       if (!matches)
-//       return res.status(404).json({ message: "match not created...." })
-
-//     res.status(200).json(matches);
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error });
-//   }
-// };
-
 
 export const getAllMatch = async (req: Request, res: Response) => {
   try {
@@ -302,7 +261,7 @@ export const getAllMatch = async (req: Request, res: Response) => {
  
     const matchIds = matches.map((m) => m._id);
  
-    // Only fetch the fields needed for the card — keeps response light
+    //for n the card 
     const innings = await Inning.find({ matchId: { $in: matchIds } })
       .select(
         "matchId inningNumber battingTeam totalRuns totalWickets oversCompleted ballsInCurrentOver status target"
@@ -363,4 +322,21 @@ export const getLiveMatches = async (req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
+};
+
+
+import PlayerHistory from "../model/PlayerHistory.model";
+
+export const createMatchHistory = async (match: any) => {
+  const allPlayers = [...match.playingTeamA, ...match.playingTeamB];
+
+  const bulk = allPlayers.map((playerId: any) => ({
+    playerId,
+    matchId: match._id,
+    teamId: match.playingTeamA.includes(playerId)
+      ? match.teamA
+      : match.teamB,
+  }));
+
+  await PlayerHistory.insertMany(bulk);
 };
