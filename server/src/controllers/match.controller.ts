@@ -5,6 +5,7 @@ import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware";
 import { request } from "https";
 import players from "../model/players.model";
+import PlayerHistory from "../model/playerHistory.model";
 
 export const createMatch = async (req: AuthRequest, res: Response) => {
   try {
@@ -325,7 +326,7 @@ export const getLiveMatches = async (req: Request, res: Response) => {
 };
 
 
-import PlayerHistory from "../model/PlayerHistory.model";
+
 
 export const createMatchHistory = async (match: any) => {
   const allPlayers = [...match.playingTeamA, ...match.playingTeamB];

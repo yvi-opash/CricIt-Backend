@@ -2,7 +2,7 @@ import Match, { MatchStatus } from "../model/match.model";
 import Inning from "../model/inning.model";
 import Ball from "../model/ball.model";
 import { Request, Response } from "express";
-import PlayerHistory from "../model/PlayerHistory.model";
+import PlayerHistory from "../model/playerHistory.model";
 
 
 export const addBall = async (req: Request, res: Response) => {

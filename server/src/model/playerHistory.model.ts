@@ -25,4 +25,5 @@ const playerHistorySchema = new Schema({
 
 }, { timestamps: true });
 
-export default mongoose.model("PlayerHistory", playerHistorySchema);
+const playerHistory = mongoose.model("playerHistory", playerHistorySchema);
+export default playerHistory;

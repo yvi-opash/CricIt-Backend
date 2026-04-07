@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import PlayerHistory from "../model/PlayerHistory.model";
+import playerHistory from "../model/playerHistory.model";
 
 
 
@@ -7,7 +7,7 @@ export const getMatchScorecard = async (req: Request, res: Response) => {
   try {
     const { matchId } = req.params;
 
-    const data = await PlayerHistory.find({ matchId })
+    const data = await playerHistory.find({ matchId })
       .populate("playerId", "playername role");
 
     res.json(data);
@@ -22,7 +22,7 @@ export const getPlayerHistory = async (req: Request, res: Response) => {
   try {
     const { playerId } = req.params;
 
-    const data = await PlayerHistory.find({ playerId })
+    const data = await playerHistory.find({ playerId })
       .populate("matchId", "teamA teamB venue matchDate")
       .populate("playerId", "playername")
       
