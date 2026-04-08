@@ -1,18 +1,11 @@
 {
   "compilerOptions": {
-    "target": "ES2019",
-    "module": "CommonJS",
-    "moduleResolution": "bundler",
-
+    "target": "ES2020",
+    "module": "commonjs",
     "rootDir": "./src",
     "outDir": "./dist",
-
-    "strict": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-
-    "forceConsistentCasingInFileNames": true,
-    "verbatimModuleSyntax": false
+    "strict": true,
+    "skipLibCheck": true
   }
 }
