@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import {Server} from 'socket.io';
+import http from 'http';
 import { mongoDB } from './db';
 import userRoutes from './routes/users.routes';
 import teamRoutes from './routes/team.routes';   
@@ -19,6 +21,16 @@ app.get('/', (req : any, res : any) => {
     res.json({message: "Welcome to CricIt API"})
 })
 
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: { origin: "*" },
+});
+
+
+
+
+
 app.use('/api/users', userRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/player', playerRoutes);
@@ -29,6 +41,22 @@ app.use('/api/ball', ballRoutes);
 
 const PORT = process.env.PORT || 7000
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server is running as on port ${PORT}`)
+});
+
+
+export { io };
+
+
+io.on("connection", (socket) => {
+  console.log("User connected");
+
+  socket.on("joinInning", (inningId) => {
+    socket.join(inningId);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected");
+  });
 });

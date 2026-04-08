@@ -4,6 +4,8 @@ import Ball from "../model/ball.model";
 import { Request, Response } from "express";
 import PlayerHistory from "../model/playerHistory.model";
 
+import { io } from "../server";
+
 
 export const addBall = async (req: Request, res: Response) => {
   try {
@@ -182,6 +184,10 @@ if (isLegalDelivery && inning.ballsInCurrentOver === 6) {
 
     await inning.save();
     await match.save();
+
+
+
+io.emit("scoreUpdate")
 
     res.status(201).json({
       message: "Ball added",
