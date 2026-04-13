@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import Groq from "groq-sdk";
+import playerHistory from "../model/playerHistory.model";
 
 export type ExtraType = "wide" | "no-ball" | "bye" | "leg-bye" | null;
 export type WicketType =
@@ -22,14 +23,16 @@ export interface CommentaryRequestBody {
   ballNumber: number;
 }
 
-export interface WinPredictionRequestBody {
-  runs: number;
-  wickets: number;
-  overs: number;
-  target?: number | null;
-  rrr?: number | null;
-  crr?: number | null;
-  wicketsLeft: number;
+interface PlayerOfMatchCandidate {
+  playerId: { playername?: string; _id?: string } | null;
+  battingRuns?: number;
+  battingBalls?: number;
+  fours?: number;
+  sixes?: number;
+  wickets?: number;
+  runsConceded?: number;
+  catches?: number;
+  runOuts?: number;
 }
 
 const ALLOWED_EXTRAS = ["wide", "no-ball", "bye", "leg-bye", null];
@@ -42,9 +45,6 @@ const ALLOWED_WICKETS = [
   "hit-wicket",
   "retired-out",
 ];
-
-const clamp = (value: number, min: number, max: number): number =>
-  Math.min(max, Math.max(min, value));
 
 let groqClient: Groq | null = null;
 
@@ -202,116 +202,129 @@ Delivery:
   }
 };
 
-const validatePredictionBody = (body: WinPredictionRequestBody): string | null => {
-  if (typeof body.runs !== "number" || body.runs < 0) return "runs must be a valid non-negative number";
-  if (typeof body.wickets !== "number" || body.wickets < 0) return "wickets must be a valid non-negative number";
-  if (typeof body.overs !== "number" || body.overs < 0) return "overs must be a valid non-negative number";
-  if (body.target != null && (typeof body.target !== "number" || body.target < 0)) return "target must be a valid non-negative number";
-  if (body.rrr != null && typeof body.rrr !== "number") return "rrr must be a valid number";
-  if (body.crr != null && typeof body.crr !== "number") return "crr must be a valid number";
-  if (typeof body.wicketsLeft !== "number" || body.wicketsLeft < 0) return "wicketsLeft must be a valid non-negative number";
-  return null;
+const fallbackPlayerOfMatch = (scorecard: PlayerOfMatchCandidate[]) => {
+  const ranked = scorecard
+    .map((entry) => {
+      const runs = Number(entry.battingRuns || 0);
+      const balls = Number(entry.battingBalls || 0);
+      const fours = Number(entry.fours || 0);
+      const sixes = Number(entry.sixes || 0);
+      const wickets = Number(entry.wickets || 0);
+      const runsConceded = Number(entry.runsConceded || 0);
+      const catches = Number(entry.catches || 0);
+      const runOuts = Number(entry.runOuts || 0);
+      const strikeRate = balls > 0 ? (runs / balls) * 100 : 0;
+
+      const score =
+        runs * 1.2 +
+        fours * 0.8 +
+        sixes * 1.3 +
+        wickets * 22 +
+        catches * 8 +
+        runOuts * 10 +
+        Math.max(0, (strikeRate - 100) * 0.1) -
+        runsConceded * 0.15;
+
+      return { entry, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return ranked[0]?.entry || null;
 };
 
-const fallbackPrediction = (body: WinPredictionRequestBody): string => {
-  const hasTarget = typeof body.target === "number" && body.target > 0;
-  let chasingChance = 50;
-
-  if (!hasTarget) {
-    const crrBoost = body.crr != null ? clamp((body.crr - 7.5) * 3.5, -18, 18) : 0;
-    const wicketBoost = clamp((body.wicketsLeft - 5) * 2.2, -12, 12);
-    chasingChance = clamp(50 + crrBoost + wicketBoost, 15, 85);
-  } else {
-    const runRateDiff = body.rrr != null && body.crr != null ? body.crr - body.rrr : 0;
-    const rateImpact = clamp(runRateDiff * 8, -35, 35);
-    const wicketImpact = clamp((body.wicketsLeft - 5) * 3.2, -22, 22);
-    const progressImpact = body.target ? clamp(((body.runs / body.target) - 0.5) * 25, -20, 20) : 0;
-    chasingChance = clamp(50 + rateImpact + wicketImpact + progressImpact, 5, 95);
-  }
-
-  const teamB = Math.round(chasingChance);
-  const teamA = 100 - teamB;
-  return `Team A: ${teamA}%\nTeam B: ${teamB}%`;
-};
-
-const normalizePredictionOutput = (rawText: string): string | null => {
-  const lines = rawText
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const teamALine = lines.find((line) => /^Team A:\s*\d{1,3}%$/i.test(line));
-  const teamBLine = lines.find((line) => /^Team B:\s*\d{1,3}%$/i.test(line));
-
-  if (!teamALine || !teamBLine) return null;
-
-  const teamA = Number((teamALine.match(/\d{1,3}/) || [])[0]);
-  const teamB = Number((teamBLine.match(/\d{1,3}/) || [])[0]);
-
-  if (!Number.isFinite(teamA) || !Number.isFinite(teamB)) return null;
-  if (teamA < 0 || teamB < 0 || teamA > 100 || teamB > 100) return null;
-  if (teamA + teamB !== 100) return null;
-
-  return `Team A: ${teamA}%\nTeam B: ${teamB}%`;
-};
-
-export const generateWinPrediction = async (req: Request, res: Response) => {
+export const generatePlayerOfTheMatch = async (req: Request, res: Response) => {
   try {
-    const body = req.body as WinPredictionRequestBody;
-    const validationError = validatePredictionBody(body);
-    if (validationError) return res.status(400).json({ message: validationError });
+    const { matchId } = req.params;
+    if (!matchId) {
+      return res.status(400).json({ message: "matchId is required" });
+    }
 
-    const prompt = `
-You are a cricket prediction expert.
+    const scorecard = (await playerHistory
+      .find({ matchId })
+      .populate("playerId", "playername")) as unknown as PlayerOfMatchCandidate[];
 
-Based on the current match situation, predict the winning chances.
+    if (!scorecard.length) {
+      return res.status(404).json({ message: "No scorecard data found for this match" });
+    }
 
-Match Data:
-- Current Score: ${body.runs}/${body.wickets}
-- Overs Completed: ${body.overs}
-- Target: ${body.target ?? 0}
-- Required Run Rate: ${body.rrr ?? 0}
-- Current Run Rate: ${body.crr ?? 0}
-- Wickets Left: ${body.wicketsLeft}
-
-Rules:
-- Give winning probability in percentage for both teams
-- Be realistic (not random)
-- Consider pressure, wickets, and run rate
-- Total must be exactly 100%
-- Output only in the exact format below
-
-Output format:
-Team A: XX%
-Team B: XX%
-`.trim();
+    const fallbackWinner = fallbackPlayerOfMatch(scorecard);
+    if (!fallbackWinner?.playerId?.playername) {
+      return res.status(200).json({ playerName: "Not decided yet", reason: "Insufficient match stats" });
+    }
 
     const client = getGroqClient();
     if (!client) {
-      return res.status(200).json({ prediction: fallbackPrediction(body) });
+      return res.status(200).json({
+        playerName: fallbackWinner.playerId.playername,
+        reason: "Selected from batting, bowling, and fielding impact.",
+      });
     }
+
+    const compactStats = scorecard.map((p) => ({
+      name: p.playerId?.playername || "Unknown",
+      battingRuns: Number(p.battingRuns || 0),
+      battingBalls: Number(p.battingBalls || 0),
+      fours: Number(p.fours || 0),
+      sixes: Number(p.sixes || 0),
+      wickets: Number(p.wickets || 0),
+      runsConceded: Number(p.runsConceded || 0),
+      catches: Number(p.catches || 0),
+      runOuts: Number(p.runOuts || 0),
+    }));
+
+    const prompt = `
+You are a cricket match analyst.
+From the scorecard stats below, select exactly one Player of the Match.
+
+Rules:
+- Prefer all-round impact (batting + bowling + fielding)
+- Return JSON only in this exact format:
+{"playerName":"<name>","reason":"<max 20 words>"}
+
+Scorecard:
+${JSON.stringify(compactStats)}
+`.trim();
 
     const completion = await client.chat.completions.create({
       model: "llama-3.1-8b-instant",
-      temperature: 0.2,
-      max_tokens: 60,
+      temperature: 0.5,
+      max_tokens: 120,
       messages: [
         {
           role: "system",
-          content:
-            "You are a cricket analytics assistant. Return only two lines exactly: Team A: XX% and Team B: XX%.",
+          content: "You are a cricket analytics assistant. Return strict JSON only.",
         },
         { role: "user", content: prompt },
       ],
     });
 
-    const modelResponse = completion.choices[0]?.message?.content || "";
-    const normalized = normalizePredictionOutput(modelResponse);
-    return res.status(200).json({ prediction: normalized || fallbackPrediction(body) });
+    const raw = completion.choices[0]?.message?.content || "";
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(200).json({
+        playerName: fallbackWinner.playerId.playername,
+        reason: "Selected from batting, bowling, and fielding impact.",
+      });
+    }
+
+    try {
+      const parsed = JSON.parse(jsonMatch[0]) as { playerName?: string; reason?: string };
+      if (!parsed.playerName) {
+        throw new Error("Invalid AI response");
+      }
+      return res.status(200).json({
+        playerName: parsed.playerName,
+        reason: parsed.reason || "Best overall impact in the match.",
+      });
+    } catch {
+      return res.status(200).json({
+        playerName: fallbackWinner.playerId.playername,
+        reason: "Selected from batting, bowling, and fielding impact.",
+      });
+    }
   } catch (error) {
-    const body = req.body as WinPredictionRequestBody;
-    return res.status(200).json({
-      prediction: fallbackPrediction(body),
+    return res.status(500).json({
+      message: "Failed to generate Player of the Match",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }
@@ -352,7 +365,7 @@ Delivery:
 
   const completion = await client.chat.completions.create({
     model: "llama-3.1-8b-instant",
-    temperature: 0.8,
+    temperature: 1.5,
     max_tokens: 60,
     messages: [
       {
