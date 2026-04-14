@@ -11,6 +11,7 @@ import inningRoutes from './routes/inning.routes';
 import ballRoutes from './routes/ball.routes';
 import adminRoutes from './routes/admin.routes';
 import aiRoutes from './routes/ai.routes';
+import cricapiRoutes from './routes/cricapi.routes';
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,7 @@ app.use('/api/inning',inningRoutes);
 app.use('/api/ball', ballRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/cricapi', cricapiRoutes);
 
 
 const PORT = process.env.PORT || 7000
