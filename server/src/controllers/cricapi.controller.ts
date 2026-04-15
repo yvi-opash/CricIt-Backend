@@ -66,14 +66,25 @@ const logLoadedKeys = (keyEntries: Array<{ name: CricApiKeyName; value: string }
   console.log(`[cricapi] loaded keys: ${keyEntries.length} -> ${loaded}`);
 };
 
+/** Avoid sync .env reads and repeated logging on every BCCI request. */
+let cachedKeyEntries: Array<{ name: CricApiKeyName; value: string }> | null = null;
+
+const getCachedKeyEntries = () => {
+  if (cachedKeyEntries) return cachedKeyEntries;
+  const envFallback = readEnvFileFallback();
+  cachedKeyEntries = getKeyEntries(envFallback);
+  if (cachedKeyEntries.length > 0) {
+    logLoadedKeys(cachedKeyEntries);
+  }
+  return cachedKeyEntries;
+};
+
 const readOffset = (req: Request) =>
   typeof req.query.offset === "string" ? req.query.offset : "0";
 
 export const getCricMatches = async (req: Request, res: Response) => {
   try {
-    const envFallback = readEnvFileFallback();
-    const keyEntries = getKeyEntries(envFallback);
-    logLoadedKeys(keyEntries);
+    const keyEntries = getCachedKeyEntries();
 
     if (keyEntries.length === 0) {
       return res
@@ -87,9 +98,9 @@ export const getCricMatches = async (req: Request, res: Response) => {
 
     for (const [index, key] of keyEntries.entries()) {
       try {
-        console.log(
-          `[cricapi] trying key ${index + 1}/${keyEntries.length}: ${key.name} (${getMask(key.value)})`
-        );
+        // console.log(
+        //   `[cricapi] trying key ${index + 1}/${keyEntries.length}: ${key.name} (${getMask(key.value)})`
+        // );
 
         const url = `${CRICAPI_BASE}/currentMatches?apikey=${encodeURIComponent(
           key.value
