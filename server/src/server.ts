@@ -39,6 +39,8 @@ app.use('/api/ball', ballRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/cricapi', cricapiRoutes);
+/** Alias for older / alternate frontend builds (e.g. cncaps path). */
+app.use('/api/cncaps', cricapiRoutes);
 
 
 const PORT = process.env.PORT || 7000
